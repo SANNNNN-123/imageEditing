@@ -93,26 +93,27 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <main className="min-h-screen flex flex-col">
       <Header />
-      
-      <main className="flex-1 flex items-start justify-center p-8">
-        <Card className="w-full max-w-4xl border shadow-sm bg-card/50 backdrop-blur-sm">
-          <CardContent className="p-6">
-            <TabsContainer
-              image={image}
-              generatedImage={generatedImage}
-              description={description}
-              loading={loading}
-              error={error}
-              history={history}
-              onImageSelect={handleImageSelect}
-              onPromptSubmit={handlePromptSubmit}
-              onReset={handleReset}
-            />
-          </CardContent>
-        </Card>
-      </main>
-    </div>
+      <div className="flex-1 py-8 px-4 dark:bg-slate-800/50">
+        <div className="container mx-auto max-w-4xl">
+          <Card className="border-0 shadow-lg dark:bg-slate-900 dark:shadow-slate-900/30">
+            <CardContent className="p-6">
+              <TabsContainer
+                image={image}
+                generatedImage={generatedImage}
+                description={description}
+                loading={loading}
+                error={error}
+                history={history}
+                onImageSelect={handleImageSelect}
+                onPromptSubmit={handlePromptSubmit}
+                onReset={handleReset}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </main>
   );
 }

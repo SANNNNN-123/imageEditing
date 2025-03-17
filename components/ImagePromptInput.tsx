@@ -38,7 +38,7 @@ export function ImagePromptInput({
   return (
     <form onSubmit={handleSubmit} className="space-y-4 rounded-lg">
       <div className="space-y-2">
-        <p className="text-sm font-medium text-foreground">
+        <p className="text-sm font-medium text-foreground dark:text-white">
           {isEditing
             ? "Describe how you want to edit the image"
             : "Describe the image you want to generate"}
@@ -47,7 +47,7 @@ export function ImagePromptInput({
 
       <Input
         id="prompt"
-        className="border-secondary resize-none"
+        className="border-secondary resize-none dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder:text-slate-400"
         placeholder={
           isEditing
             ? "Example: Make the background blue and add a rainbow..."
@@ -61,7 +61,7 @@ export function ImagePromptInput({
       <button
         type="submit"
         disabled={!prompt.trim() || isLoading}
-        className="w-full h-10 px-4 py-2 inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+        className="w-full h-10 px-4 py-2 inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 dark:disabled:opacity-40 dark:ring-offset-slate-900"
         style={buttonStyle}
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}

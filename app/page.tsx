@@ -1,10 +1,8 @@
 "use client";
 import { useState } from "react";
-import { ImageUpload } from "@/components/ImageUpload";
-import { ImagePromptInput } from "@/components/ImagePromptInput";
-import { ImageResultDisplay } from "@/components/ImageResultDisplay";
-import { ImageIcon, Wand2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Header } from "@/components/Header";
+import { TabsContainer } from "@/components/TabsContainer";
+import { Card, CardContent } from "@/components/ui/card";
 import { HistoryItem } from "@/lib/types";
 
 export default function Home() {
@@ -94,71 +92,27 @@ export default function Home() {
     setHistory([]);
   };
 
-  // If we have a generated image, we want to edit it next time
-  const currentImage = generatedImage || image;
-  const isEditing = !!currentImage;
-
-  // Get the latest image to display (always the generated image)
-  const displayImage = generatedImage;
-
   return (
-    <main className="min-h-screen flex items-center justify-center bg-background p-8">
-      <Card className="w-full max-w-4xl border-0 bg-card shadow-none">
-        <CardHeader className="flex flex-col items-center justify-center space-y-2">
-          <CardTitle className="flex items-center gap-2 text-foreground">
-            <Wand2 className="w-8 h-8 text-primary" />
-            Image Creation & Editing
-          </CardTitle>
-          <span className="text-sm font-mono text-muted-foreground">
-            powered by Gemini 2.0 Flash Exp
-          </span>
-        </CardHeader>
-        <CardContent className="space-y-6 pt-6 w-full">
-          {error && (
-            <div className="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg">
-              {error}
-            </div>
-          )}
-
-          {!displayImage && !loading ? (
-            <>
-              <ImageUpload
-                onImageSelect={handleImageSelect}
-                currentImage={currentImage}
-              />
-              <ImagePromptInput
-                onSubmit={handlePromptSubmit}
-                isEditing={isEditing}
-                isLoading={loading}
-              />
-            </>
-          ) : loading ? (
-            <div
-              role="status"
-              className="flex items-center mx-auto justify-center h-56 max-w-sm bg-gray-300 rounded-lg animate-pulse dark:bg-secondary"
-            >
-              <ImageIcon className="w-10 h-10 text-gray-200 dark:text-muted-foreground" />
-              <span className="pl-4 font-mono font-xs text-muted-foreground">
-                Processing...
-              </span>
-            </div>
-          ) : (
-            <>
-              <ImageResultDisplay
-                imageUrl={displayImage || ""}
-                description={description}
-                onReset={handleReset}
-                conversationHistory={history}
-              />
-              <ImagePromptInput
-                onSubmit={handlePromptSubmit}
-                isEditing={true}
-                isLoading={loading}
-              />
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </main>
+    <div className="min-h-screen flex flex-col bg-background">
+      <Header />
+      
+      <main className="flex-1 flex items-start justify-center p-8">
+        <Card className="w-full max-w-4xl border shadow-sm bg-card/50 backdrop-blur-sm">
+          <CardContent className="p-6">
+            <TabsContainer
+              image={image}
+              generatedImage={generatedImage}
+              description={description}
+              loading={loading}
+              error={error}
+              history={history}
+              onImageSelect={handleImageSelect}
+              onPromptSubmit={handlePromptSubmit}
+              onReset={handleReset}
+            />
+          </CardContent>
+        </Card>
+      </main>
+    </div>
   );
 }

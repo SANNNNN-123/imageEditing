@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
 import { HistoryItem, HistoryPart } from "@/lib/types";
 
 // Initialize the Google Gen AI client with your API key
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-// Define the model ID for Gemini 2.0 Flash experimental
+// Define the model ID for Gemini 2.0 Flash experimental with image generation
 const MODEL_ID = "gemini-2.0-flash-exp";
 
 // Define interface for the formatted history item
@@ -20,6 +20,15 @@ interface FormattedHistoryItem {
 
 export async function POST(req: NextRequest) {
   try {
+    // Check if API key is available
+    if (!GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY is not set");
+      return NextResponse.json(
+        { error: "API key is not configured" },
+        { status: 500 }
+      );
+    }
+
     // Parse JSON request instead of FormData
     const requestData = await req.json();
     const { prompt, image: inputImage, history } = requestData;
@@ -38,9 +47,29 @@ export async function POST(req: NextRequest) {
         temperature: 1,
         topP: 0.95,
         topK: 40,
+        maxOutputTokens: 8192,
         // @ts-expect-error - Gemini API JS is missing this type
         responseModalities: ["Text", "Image"],
       },
+      // Add safety settings to disable content filters
+      safetySettings: [
+        {
+          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+          threshold: HarmBlockThreshold.BLOCK_NONE
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+          threshold: HarmBlockThreshold.BLOCK_NONE
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+          threshold: HarmBlockThreshold.BLOCK_NONE
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+          threshold: HarmBlockThreshold.BLOCK_NONE
+        },
+      ],
     });
 
     let result;
@@ -134,6 +163,15 @@ export async function POST(req: NextRequest) {
     }
 
     const response = result.response;
+    
+    // Log the response structure to help with debugging
+    console.log("API Response structure:", JSON.stringify({
+      hasResponse: !!response,
+      hasCandidates: !!(response && response.candidates),
+      candidatesLength: response && response.candidates ? response.candidates.length : 0,
+      firstCandidateKeys: response && response.candidates && response.candidates.length > 0 
+        ? Object.keys(response.candidates[0]) : []
+    }));
 
     let textResponse = null;
     let imageData = null;
@@ -141,7 +179,39 @@ export async function POST(req: NextRequest) {
 
     // Process the response
     if (response.candidates && response.candidates.length > 0) {
-      const parts = response.candidates[0].content.parts;
+      const candidate = response.candidates[0];
+      
+      // Check for safety filters
+      if (candidate.finishReason === "IMAGE_SAFETY") {
+        console.error("Image safety filters triggered", candidate);
+        return NextResponse.json(
+          { 
+            error: "Content safety filters triggered", 
+            details: "The image or request was flagged by Gemini's safety filters. Please try a different image or prompt."
+          },
+          { status: 403 }
+        );
+      }
+      
+      // Check if content exists before accessing parts
+      if (!candidate.content) {
+        console.error("Response content is undefined", response);
+        return NextResponse.json(
+          { error: "Invalid API response structure - content is missing" },
+          { status: 500 }
+        );
+      }
+      
+      // Check if parts exists
+      if (!candidate.content.parts) {
+        console.error("Response content.parts is undefined", candidate.content);
+        return NextResponse.json(
+          { error: "Invalid API response structure - parts is missing" },
+          { status: 500 }
+        );
+      }
+      
+      const parts = candidate.content.parts;
       console.log("Number of parts in response:", parts.length);
 
       for (const part of parts) {
@@ -173,6 +243,38 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("Error generating image:", error);
+    
+    // Provide more specific error messages based on the error type
+    if (error instanceof Error) {
+      if (error.message.includes("API key")) {
+        return NextResponse.json(
+          {
+            error: "API key issue",
+            details: "The API key may be invalid, expired, or missing. Please check your environment variables.",
+          },
+          { status: 401 }
+        );
+      } else if (error.message.includes("quota")) {
+        return NextResponse.json(
+          {
+            error: "API quota exceeded",
+            details: "Your Gemini API quota has been exceeded. Please check your usage limits.",
+          },
+          { status: 429 }
+        );
+      } else if (error.message.toLowerCase().includes("safety") || 
+                error.message.toLowerCase().includes("harmful") ||
+                error.message.toLowerCase().includes("blocked")) {
+        return NextResponse.json(
+          {
+            error: "Content safety filters triggered",
+            details: "The image or prompt was flagged by Gemini's safety filters. Please try a different image or prompt.",
+          },
+          { status: 403 }
+        );
+      }
+    }
+    
     return NextResponse.json(
       {
         error: "Failed to generate image",

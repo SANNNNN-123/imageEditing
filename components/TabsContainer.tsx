@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ImageUpload } from "@/components/ImageUpload";
 import { ImagePromptInput } from "@/components/ImagePromptInput";
 import { ImageResultDisplay } from "@/components/ImageResultDisplay";
-import { ImageIcon, Upload, Clock, Check } from "lucide-react";
+import { ImageIcon, Upload, Clock, Check, ArrowLeft, Pencil } from "lucide-react";
 import { HistoryItem } from "@/lib/types";
+import { Button } from "@/components/ui/button";
 
 interface TabsContainerProps {
   image: string | null;
@@ -33,13 +34,18 @@ export function TabsContainer({
 }: TabsContainerProps) {
   const [activeTab, setActiveTab] = useState("create");
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
+  const [selectedVersionImage, setSelectedVersionImage] = useState<string | null>(null);
+  const [selectedVersionDescription, setSelectedVersionDescription] = useState<string | null>(null);
   
   // If we have a generated image, we want to edit it next time
   const currentImage = generatedImage || image;
   const isEditing = !!currentImage;
   
-  // Get the latest image to display (always the generated image)
-  const displayImage = generatedImage;
+  // Get the latest image to display (always the generated image unless a version is selected)
+  const displayImage = selectedVersionImage || generatedImage;
+  
+  // Only show description for generated images, not for original uploaded images
+  const displayDescription = selectedVersionImage === image ? null : selectedVersionDescription || description;
 
   // Format timestamp to show only the time (HH:MM AM/PM)
   const formatTime = () => {
@@ -73,6 +79,43 @@ export function TabsContainer({
     return "";
   };
 
+  // Handle version selection
+  const handleVersionSelect = (index: number) => {
+    const modelResponses = getModelResponses();
+    if (modelResponses[index]) {
+      const selectedItem = modelResponses[index];
+      
+      // Find the image in the selected version
+      const imagePart = selectedItem.parts.find(part => part.image);
+      const textPart = selectedItem.parts.find(part => part.text);
+      
+      if (imagePart && imagePart.image) {
+        setSelectedVersionImage(imagePart.image);
+        setSelectedVersionDescription(textPart?.text || null);
+        setSelectedVersion(index);
+      }
+    }
+  };
+
+  // Reset to the latest version
+  const resetToLatest = () => {
+    setSelectedVersion(null);
+    setSelectedVersionImage(null);
+    setSelectedVersionDescription(null);
+  };
+
+  // Reset selected version when history changes
+  useEffect(() => {
+    resetToLatest();
+  }, [history.length]);
+
+  // Switch to edit tab when an image is generated
+  useEffect(() => {
+    if (generatedImage && activeTab === "create") {
+      setActiveTab("upload");
+    }
+  }, [generatedImage]);
+
   return (
     <Tabs 
       defaultValue="create" 
@@ -89,8 +132,17 @@ export function TabsContainer({
           value="upload" 
           disabled={loading}
         >
-          <Upload className="w-4 h-4 mr-2" />
-          Upload Image
+          {isEditing ? (
+            <>
+              <Pencil className="w-4 h-4 mr-2" />
+              Edit
+            </>
+          ) : (
+            <>
+              <Upload className="w-4 h-4 mr-2" />
+              Upload Image
+            </>
+          )}
         </TabsTrigger>
       </TabsList>
       
@@ -101,7 +153,7 @@ export function TabsContainer({
       )}
       
       <TabsContent value="create" className="space-y-4">
-        {!displayImage && !loading ? (
+        {!displayImage ? (
           <>
             <ImageUpload
               onImageSelect={onImageSelect}
@@ -113,22 +165,12 @@ export function TabsContainer({
               isLoading={loading}
             />
           </>
-        ) : loading ? (
-          <div
-            role="status"
-            className="flex items-center mx-auto justify-center h-56 max-w-sm bg-gray-300 rounded-lg animate-pulse dark:bg-secondary"
-          >
-            <ImageIcon className="w-10 h-10 text-gray-200 dark:text-muted-foreground" />
-            <span className="pl-4 font-mono font-xs text-muted-foreground">
-              Processing...
-            </span>
-          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2">
               <ImageResultDisplay
                 imageUrl={displayImage || ""}
-                description={description}
+                description={displayDescription}
                 onReset={onReset}
                 conversationHistory={[]}
               />
@@ -148,24 +190,34 @@ export function TabsContainer({
                 </h3>
                 
                 {image && (
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between mb-1">
+                  <div 
+                    className="p-3 rounded-lg border border-border/50 bg-background hover:bg-muted/30 transition-colors cursor-pointer mb-3"
+                    onClick={() => {
+                      setSelectedVersion(null);
+                      setSelectedVersionImage(image);
+                      setSelectedVersionDescription(null);
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-5 h-5 bg-muted rounded-md flex items-center justify-center">
-                          <ImageIcon className="w-3 h-3 text-muted-foreground" />
+                        <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center">
+                          <ImageIcon className="w-6 h-6 text-muted-foreground" />
                         </div>
-                        <span className="text-sm font-medium">Original</span>
+                        <div>
+                          <span className="text-sm font-medium">Original</span>
+                          <p className="text-xs text-muted-foreground">Original image</p>
+                        </div>
                       </div>
-                      <span className="text-xs text-muted-foreground">{formatTime()}</span>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">{formatTime()}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground ml-7">Original image</p>
                   </div>
                 )}
                 
                 {getModelResponses().length > 0 && (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {getModelResponses().map((item, index) => {
-                      const versionNumber = getModelResponses().length - index;
+                      // Version number is just the index + 1 (first edit is Version 1)
+                      const versionNumber = index + 1;
                       const prompt = getPromptForVersion(index);
                       const isSelected = selectedVersion === index;
                       
@@ -173,9 +225,9 @@ export function TabsContainer({
                         <div 
                           key={index} 
                           className={`p-3 rounded-lg border ${isSelected ? 'border-primary bg-primary/5' : 'border-border/50 bg-background hover:bg-muted/30'} transition-colors cursor-pointer`}
-                          onClick={() => setSelectedVersion(index)}
+                          onClick={() => handleVersionSelect(index)}
                         >
-                          <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               {item.parts.some(part => part.image) && (
                                 <div className="w-10 h-10 rounded-md overflow-hidden">
@@ -194,7 +246,7 @@ export function TabsContainer({
                                 <p className="text-xs text-muted-foreground line-clamp-1">{prompt}</p>
                               </div>
                             </div>
-                            <span className="text-xs text-muted-foreground">{formatTime()}</span>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">{formatTime()}</span>
                           </div>
                         </div>
                       );
@@ -246,24 +298,34 @@ export function TabsContainer({
                 </h3>
                 
                 {image && (
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between mb-1">
+                  <div 
+                    className="p-3 rounded-lg border border-border/50 bg-background hover:bg-muted/30 transition-colors cursor-pointer mb-3"
+                    onClick={() => {
+                      setSelectedVersion(null);
+                      setSelectedVersionImage(image);
+                      setSelectedVersionDescription(null);
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-5 h-5 bg-muted rounded-md flex items-center justify-center">
-                          <ImageIcon className="w-3 h-3 text-muted-foreground" />
+                        <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center">
+                          <ImageIcon className="w-6 h-6 text-muted-foreground" />
                         </div>
-                        <span className="text-sm font-medium">Original</span>
+                        <div>
+                          <span className="text-sm font-medium">Original</span>
+                          <p className="text-xs text-muted-foreground">Original image</p>
+                        </div>
                       </div>
-                      <span className="text-xs text-muted-foreground">{formatTime()}</span>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">{formatTime()}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground ml-7">Original image</p>
                   </div>
                 )}
                 
                 {getModelResponses().length > 0 && (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {getModelResponses().map((item, index) => {
-                      const versionNumber = getModelResponses().length - index;
+                      // Version number is just the index + 1 (first edit is Version 1)
+                      const versionNumber = index + 1;
                       const prompt = getPromptForVersion(index);
                       const isSelected = selectedVersion === index;
                       
@@ -271,9 +333,9 @@ export function TabsContainer({
                         <div 
                           key={index} 
                           className={`p-3 rounded-lg border ${isSelected ? 'border-primary bg-primary/5' : 'border-border/50 bg-background hover:bg-muted/30'} transition-colors cursor-pointer`}
-                          onClick={() => setSelectedVersion(index)}
+                          onClick={() => handleVersionSelect(index)}
                         >
-                          <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               {item.parts.some(part => part.image) && (
                                 <div className="w-10 h-10 rounded-md overflow-hidden">
@@ -292,7 +354,7 @@ export function TabsContainer({
                                 <p className="text-xs text-muted-foreground line-clamp-1">{prompt}</p>
                               </div>
                             </div>
-                            <span className="text-xs text-muted-foreground">{formatTime()}</span>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">{formatTime()}</span>
                           </div>
                         </div>
                       );

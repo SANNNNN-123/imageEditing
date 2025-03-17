@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Wand2 } from "lucide-react";
+import { Wand2, Loader2 } from "lucide-react";
 import { Input } from "./ui/input";
+import { cn } from "@/lib/utils";
 
 interface ImagePromptInputProps {
   onSubmit: (prompt: string) => void;
@@ -17,12 +18,21 @@ export function ImagePromptInput({
   isLoading,
 }: ImagePromptInputProps) {
   const [prompt, setPrompt] = useState("");
+  const [isHovering, setIsHovering] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
     if (prompt.trim()) {
       onSubmit(prompt.trim());
       setPrompt("");
     }
+  };
+
+  // Custom button styles
+  const buttonStyle = {
+    backgroundColor: isHovering ? 'hsl(var(--primary) / 0.9)' : 'hsl(var(--primary))',
+    color: 'hsl(var(--primary-foreground))',
+    transition: 'background-color 0.2s ease-in-out',
   };
 
   return (
@@ -45,16 +55,29 @@ export function ImagePromptInput({
         }
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
+        disabled={isLoading}
       />
 
-      <Button
+      <button
         type="submit"
         disabled={!prompt.trim() || isLoading}
-        className="w-full bg-primary hover:bg-primary/90"
+        className="w-full h-10 px-4 py-2 inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+        style={buttonStyle}
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
       >
-        <Wand2 className="w-4 h-4 mr-2" />
-        {isEditing ? "Edit Image" : "Generate Image"}
-      </Button>
+        {isLoading ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            Processing...
+          </>
+        ) : (
+          <>
+            <Wand2 className="w-4 h-4 mr-2" />
+            {isEditing ? "Edit Image" : "Generate Image"}
+          </>
+        )}
+      </button>
     </form>
   );
 }

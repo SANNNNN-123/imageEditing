@@ -37,7 +37,7 @@ export function ImageResultDisplay({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold dark:text-white">Current Image</h2>
+        <h2 className="text-xl font-semibold dark:text-white">Generated Image</h2>
         <div className="space-x-2">
           <Button variant="outline" size="sm" onClick={handleDownload} className="dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white">
             <Download className="w-4 h-4 mr-2" />
